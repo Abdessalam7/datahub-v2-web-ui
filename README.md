@@ -62,8 +62,7 @@ datahub-v2-monitoring/
 ### Design
 
 BNP Paribas green as brand accent, IBM Plex Sans/Mono for UI and data,
-Fraunces (serif) for the hero uptime figure. See the design conversation in
-the originating Claude session for the two earlier concept iterations.
+Fraunces (serif) for the hero uptime figure.
 
 ## COS Data Format
 
