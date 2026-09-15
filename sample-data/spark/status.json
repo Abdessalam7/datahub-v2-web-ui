@@ -1,0 +1,74 @@
+{
+  "generated_at": "2026-02-23T08:00:00Z",
+  "clients": [
+    {
+      "name": "client-alpha",
+      "environments": [
+        {
+          "name": "production",
+          "checks": [
+            {
+              "id": "spark-alpha-prod-ui",
+              "label": "Spark UI",
+              "instance": "spark-prod-alpha",
+              "namespace": "spark",
+              "url": "https://spark.alpha.prod.example.com",
+              "status_code": 200,
+              "ok": true,
+              "latency_ms": 187,
+              "last_checked_at": "2026-02-23T07:59:50Z"
+            },
+            {
+              "id": "spark-alpha-prod-api",
+              "label": "Spark REST API",
+              "instance": "spark-prod-alpha",
+              "namespace": "spark",
+              "url": "https://spark.alpha.prod.example.com/api/v1/applications",
+              "status_code": 200,
+              "ok": true,
+              "latency_ms": 310,
+              "last_checked_at": "2026-02-23T07:59:51Z"
+            }
+          ]
+        },
+        {
+          "name": "staging",
+          "checks": [
+            {
+              "id": "spark-alpha-staging-ui",
+              "label": "Spark UI",
+              "instance": "spark-staging-alpha",
+              "namespace": "spark",
+              "url": "https://spark.alpha.staging.example.com",
+              "status_code": 404,
+              "ok": false,
+              "latency_ms": 412,
+              "last_checked_at": "2026-02-23T07:59:52Z"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "client-beta",
+      "environments": [
+        {
+          "name": "production",
+          "checks": [
+            {
+              "id": "spark-beta-prod-ui",
+              "label": "Spark UI",
+              "instance": "spark-prod-beta",
+              "namespace": "spark",
+              "url": "https://spark.beta.prod.example.com",
+              "status_code": 200,
+              "ok": true,
+              "latency_ms": 205,
+              "last_checked_at": "2026-02-23T07:59:53Z"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

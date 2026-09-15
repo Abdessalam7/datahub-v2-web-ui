@@ -1,0 +1,148 @@
+{
+  "airflow": {
+    "https://astronomer-ap43877-dev-81554669.data.cloud.net.intra": {
+      "status": "ERROR",
+      "error": "Expecting value: line 1 column 1 (char 0)"
+    },
+    "https://astronomer-ap91055-dev-2e783a50.data.cloud.net.intra": {
+      "status": "OK",
+      "components": {
+        "dag_processor": {
+          "latest_dag_processor_heartbeat": "2026-02-24T11:41:44.651403+00:00",
+          "status": "unhealthy"
+        },
+        "metadatabase": {
+          "status": "healthy"
+        },
+        "scheduler": {
+          "latest_scheduler_heartbeat": "2026-02-24T11:41:56.915134+00:00",
+          "status": "healthy"
+        },
+        "triggerer": {
+          "latest_triggerer_heartbeat": "2026-02-24T11:41:55.413031+00:00",
+          "status": "healthy"
+        }
+      }
+    },
+    "https://astronomer-ap92045-dev-01856c32.data.cloud.net.intra": {
+      "status": "OK",
+      "components": {
+        "dag_processor": {
+          "latest_dag_processor_heartbeat": "2026-02-24T11:41:55.974913+00:00",
+          "status": "healthy"
+        },
+        "metadatabase": {
+          "status": "healthy"
+        },
+        "scheduler": {
+          "latest_scheduler_heartbeat": "2026-02-24T11:42:00.017356+00:00",
+          "status": "healthy"
+        },
+        "triggerer": {
+          "latest_triggerer_heartbeat": "2026-02-24T11:41:58.403310+00:00",
+          "status": "healthy"
+        }
+      }
+    },
+    "https://astronomer-ap11604-qual-483302c5.data.cloud.net.intra": {
+      "status": "OK",
+      "components": {
+        "dag_processor": {
+          "latest_dag_processor_heartbeat": "2026-02-24T11:41:59.085301+00:00",
+          "status": "healthy"
+        },
+        "metadatabase": {
+          "status": "healthy"
+        },
+        "scheduler": {
+          "latest_scheduler_heartbeat": "2026-02-24T11:41:59.339777+00:00",
+          "status": "healthy"
+        },
+        "triggerer": {
+          "latest_triggerer_heartbeat": "2026-02-24T11:41:57.246446+00:00",
+          "status": "healthy"
+        }
+      }
+    },
+    "https://astronomer-ap43970-qual-40414341.data.cloud.net.intra": {
+      "status": "OK",
+      "components": {
+        "dag_processor": {
+          "latest_dag_processor_heartbeat": "2026-02-24T11:41:57.518649+00:00",
+          "status": "healthy"
+        },
+        "metadatabase": {
+          "status": "healthy"
+        },
+        "scheduler": {
+          "latest_scheduler_heartbeat": "2026-02-24T11:40:32.776170+00:00",
+          "status": "unhealthy"
+        },
+        "triggerer": {
+          "latest_triggerer_heartbeat": "2026-02-24T11:41:56.502316+00:00",
+          "status": "healthy"
+        }
+      }
+    },
+    "https://astronomer-ap84264-qual-1fd245b3.data.cloud.net.intra": {
+      "status": "OK",
+      "components": {
+        "dag_processor": {
+          "latest_dag_processor_heartbeat": "2026-02-24T11:41:59.197454+00:00",
+          "status": "healthy"
+        },
+        "metadatabase": {
+          "status": "healthy"
+        },
+        "scheduler": {
+          "latest_scheduler_heartbeat": "2026-02-24T11:41:57.942676+00:00",
+          "status": "healthy"
+        },
+        "triggerer": {
+          "latest_triggerer_heartbeat": "2026-02-24T11:41:57.841356+00:00",
+          "status": "healthy"
+        }
+      }
+    },
+    "https://astronomer-ap24216-dev-7f557fbe.data.cloud.net.intra": {
+      "status": "OK",
+      "components": {
+        "dag_processor": {
+          "latest_dag_processor_heartbeat": "2026-02-24T11:41:57.703446+00:00",
+          "status": "healthy"
+        },
+        "metadatabase": {
+          "status": "healthy"
+        },
+        "scheduler": {
+          "latest_scheduler_heartbeat": "2026-02-24T11:42:00.527969+00:00",
+          "status": "healthy"
+        },
+        "triggerer": {
+          "latest_triggerer_heartbeat": "2026-02-24T11:41:56.467177+00:00",
+          "status": "healthy"
+        }
+      }
+    },
+    "https://astronomer-ap75279-dev-ee04bef5.data.cloud.net.intra": {
+      "status": "OK",
+      "components": {
+        "dag_processor": {
+          "latest_dag_processor_heartbeat": "2026-02-24T11:41:56.065034+00:00",
+          "status": "healthy"
+        },
+        "metadatabase": {
+          "status": "healthy"
+        },
+        "scheduler": {
+          "latest_scheduler_heartbeat": "2026-02-24T11:41:59.256447+00:00",
+          "status": "healthy"
+        },
+        "triggerer": {
+          "latest_triggerer_heartbeat": "2026-02-24T11:42:00.556632+00:00",
+          "status": "healthy"
+        }
+      }
+    }
+  }
+}

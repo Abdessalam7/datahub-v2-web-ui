@@ -1,0 +1,28 @@
+FROM docker.artifactory-dogen.group.echonet/python:3.13.1-bookworm
+
+ENV PYTHONBUFFERED=1
+ENV PIP_CONFIG_FILE=/workspace/pip.conf
+ENV REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt
+
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+
+WORKDIR /app
+
+RUN \
+    /workspace/gen_apt_config.sh || true \
+    && apt-get update \
+    && apt-get clean all \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY requirements.txt .
+
+RUN \
+    pip install \
+        --no-cache-dir \
+        -r requirements.txt
+
+COPY . .
+
+EXPOSE 8081
+
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8081"]
