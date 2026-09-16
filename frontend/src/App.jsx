@@ -2,72 +2,26 @@ import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import Hero from "./components/Hero.jsx";
 import Filters from "./components/Filters.jsx";
 import StatusTable from "./components/StatusTable.jsx";
-import UptimeChart from "./components/UptimeChart.jsx";
-import { fetchStatus } from "./api.js";
-import "./styles/global.css";
+import Trend from "./components/Trend.jsx";
+import Journal from "./components/Journal.jsx";
+import Ranking from "./components/Ranking.jsx";
+import { fetchStatus, fetchHistory } from "./api.js";
+import { flattenData } from "./lib/flatten.js";
+import { computeDailyUptime, computeJournal, computeRanking } from "./lib/history.js";
+import "./style/global.css";
 
 const TABS = ["airflow", "spark", "starburst"];
 const TAB_LABELS = { airflow: "Airflow", spark: "Spark", starburst: "Starburst" };
 const REFRESH_INTERVAL = 300_000;
 const HISTORY_MAX_HOURS = 24;
-const HISTORY_KEY = (tech) => `smoke_history_${tech}`;
 const COMBINED_HISTORY_KEY = "smoke_history_combined";
-
-function flattenData(data, tech) {
-  if (tech === "spark") {
-    return (data.tenants ?? []).map((t, i) => ({
-      id: `spark-${i}`,
-      client: t.business_line.toUpperCase(),
-      env: t.env,
-      tenant_name: t.tenant_name,
-      url_href: `https://${t.tenant_name.replace(/^spark-/, "sparkui-")}.data.cloud.net.intra`,
-      status: t.status,
-      sync_argo: t.sync_argo,
-      global_status: t.global_status,
-      all_healthy: t.all_healthy,
-      version: t.version,
-      deprecated: t.deprecated,
-      ibm_account: t.ibm_account,
-      iks_cluster: t.iks_cluster,
-      ok: t.all_healthy,
-    }));
-  }
-  if (tech === "starburst") {
-    return (data.instances ?? []).map((t, i) => ({
-      id: `starburst-${i}`,
-      client: t.business_line.toUpperCase(),
-      env: t.env,
-      url: t.url,
-      url_href: `https://${t.url}.data.cloud.net.intra`,
-      number_of_catalogs: t.number_of_catalogs,
-      healthy_catalogs: t.healthy_catalogs,
-      coordinator_uptime: t.coordinator_uptime,
-      coordinator_health: t.coordinator_health,
-      number_of_workers: t.number_of_workers,
-      workers_health: t.workers_health,
-      version: t.version,
-      starburst_instance_health: t.starburst_instance_health,
-      errors: t.errors,
-      failed_catalogs: t.failed_catalogs,
-      ok: t.starburst_instance_health === true && t.healthy_catalogs === t.number_of_catalogs,
-    }));
-  }
-  return (data.instances ?? []).map((t, i) => ({
-    id: `airflow-${i}`,
-    client: t.business_line.toUpperCase(),
-    env: t.env,
-    url: t.url,
-    url_href: `https://${t.url}.data.cloud.net.intra`,
-    version: t.version,
-    http: t.http,
-    dag_processor: t.dag_processor,
-    scheduler: t.scheduler,
-    trigger: t.trigger,
-    meta_db: t.meta_db,
-    error: t.error,
-    ok: t.http === true && t.dag_processor === true && t.scheduler === true && t.trigger === true && t.meta_db === true,
-  }));
-}
+const SECTIONS = ["current", "trend", "history", "ranking"];
+const SECTION_LABELS = {
+  current: "Vue actuelle",
+  trend: "Tendance",
+  history: "Journal des changements",
+  ranking: "Classement",
+};
 
 function loadHistory(key) {
   try {
@@ -189,13 +143,11 @@ export default function App() {
   const [errors, setErrors] = useState({});
   const [loading, setLoading]         = useState(false);
   const [nextRefresh, setNextRefresh] = useState(Date.now() + REFRESH_INTERVAL);
-  const [historyByTech, setHistoryByTech] = useState(() => {
-    const h = {};
-    for (const t of TABS) h[t] = loadHistory(HISTORY_KEY(t));
-    return h;
-  });
   const [combinedHistory, setCombinedHistory] = useState(() => loadHistory(COMBINED_HISTORY_KEY).map((s) => s.uptime));
-  const [showHistory, setShowHistory] = useState(false);
+  const [section, setSection] = useState("current");
+  const [rawHistoryByTech, setRawHistoryByTech] = useState({});
+  const [historyLoading, setHistoryLoading] = useState({});
+  const [historyErrors, setHistoryErrors] = useState({});
 
   const [selectedClient, setSelectedClient] = useState("");
   const [selectedEnv, setSelectedEnv]       = useState("");
@@ -213,22 +165,17 @@ export default function App() {
     const nextErrors = {};
     let combinedOk = 0, combinedTotal = 0;
 
-    setHistoryByTech((prevHistory) => {
-      const updatedHistory = { ...prevHistory };
-      results.forEach((res, i) => {
-        const t = TABS[i];
-        if (res.status === "rejected") {
-          nextErrors[t] = res.reason?.message ?? "Fetch failed";
-          return;
-        }
-        const { source, data } = res.value;
-        const rows = flattenData(data, t);
-        nextData[t] = { rows, source, generatedAt: data.generated_at };
-        combinedOk += rows.filter((r) => r.ok).length;
-        combinedTotal += rows.length;
-        updatedHistory[t] = appendSnapshot(HISTORY_KEY(t), prevHistory[t] ?? [], { ts: Date.now(), rows });
-      });
-      return updatedHistory;
+    results.forEach((res, i) => {
+      const t = TABS[i];
+      if (res.status === "rejected") {
+        nextErrors[t] = res.reason?.message ?? "Fetch failed";
+        return;
+      }
+      const { source, data } = res.value;
+      const rows = flattenData(data, t);
+      nextData[t] = { rows, source, generatedAt: data.generated_at };
+      combinedOk += rows.filter((r) => r.ok).length;
+      combinedTotal += rows.length;
     });
 
     setDataByTech((prev) => ({ ...prev, ...nextData }));
@@ -258,6 +205,34 @@ export default function App() {
     setActiveCard("total"); setActiveFilter(null);
   }, [tech]);
 
+  // Trend/Journal/Classement all read the same COS history for the currently
+  // selected tech — fetched once per tech (37 days: 30 to render + a 7-day
+  // buffer so the first rendered days still have a carry-in state).
+  useEffect(() => {
+    if (tech === "starburst" || rawHistoryByTech[tech] || historyLoading[tech]) return;
+    setHistoryLoading((prev) => ({ ...prev, [tech]: true }));
+    fetchHistory(tech, 37)
+      .then(({ data }) => {
+        setRawHistoryByTech((prev) => ({ ...prev, [tech]: data }));
+      })
+      .catch((err) => {
+        setHistoryErrors((prev) => ({ ...prev, [tech]: err.message }));
+      })
+      .finally(() => {
+        setHistoryLoading((prev) => ({ ...prev, [tech]: false }));
+      });
+  }, [tech, rawHistoryByTech, historyLoading]);
+
+  const daily = useMemo(
+    () => computeDailyUptime(rawHistoryByTech[tech] ?? [], tech, 30),
+    [rawHistoryByTech, tech]
+  );
+  const journalEntries = useMemo(
+    () => computeJournal(rawHistoryByTech[tech] ?? [], tech),
+    [rawHistoryByTech, tech]
+  );
+  const ranking = useMemo(() => computeRanking(daily), [daily]);
+
   const techStats = useMemo(() => {
     const stats = {};
     for (const t of TABS) {
@@ -270,7 +245,6 @@ export default function App() {
 
   const current = dataByTech[tech];
   const rows = current?.rows ?? [];
-  const history = historyByTech[tech] ?? [];
   const error = errors[tech];
 
   const handleCardClick = (key) => {
@@ -313,45 +287,59 @@ export default function App() {
             <span>Détail système — <strong>{TAB_LABELS[tech]}</strong></span>
           </div>
 
-          {error ? (
-            <div className="state-box error">⚠ {error}</div>
-          ) : loading && rows.length === 0 ? (
-            <div className="state-box">Loading…</div>
-          ) : (
-            <>
-              <StatusBanner rows={rows} />
-              <KpiCards rows={rows} tech={tech} activeCard={activeCard} onCardClick={handleCardClick} />
-              <ClientEnvCards rows={rows} activeFilter={activeFilter} onFilter={handleCeFilter} />
+          <div className="section-toggle-bar" role="tablist" aria-label="Sections">
+            {SECTIONS.map((s) => (
+              <button
+                key={s} type="button" role="tab" aria-selected={section === s}
+                className={`section-toggle-btn ${section === s ? "section-toggle-active" : ""}`}
+                onClick={() => setSection(s)}
+              >
+                {SECTION_LABELS[s]}
+              </button>
+            ))}
+          </div>
 
-              <div className="section-toggle-bar">
-                <button
-                  className={`section-toggle-btn ${showHistory ? "section-toggle-active" : ""}`}
-                  onClick={() => setShowHistory((v) => !v)}
-                >
-                  {showHistory ? "▾" : "▸"} Uptime history (24h)
-                  {history.length > 0 && <span className="history-count">{history.length} snapshots</span>}
-                </button>
-              </div>
+          {section === "current" && (
+            error ? (
+              <div className="state-box error">⚠ {error}</div>
+            ) : loading && rows.length === 0 ? (
+              <div className="state-box">Loading…</div>
+            ) : (
+              <>
+                <StatusBanner rows={rows} />
+                <KpiCards rows={rows} tech={tech} activeCard={activeCard} onCardClick={handleCardClick} />
+                <ClientEnvCards rows={rows} activeFilter={activeFilter} onFilter={handleCeFilter} />
 
-              {showHistory && <UptimeChart history={history} />}
+                {current?.generatedAt && (
+                  <div className="meta-bar">
+                    <span>Generated at: <strong>{new Date(current.generatedAt).toLocaleString()}</strong></span>
+                    {current.source && <span className="source">[{current.source}]</span>}
+                    <span>{filtered.length} / {rows.length} checks</span>
+                  </div>
+                )}
 
-              {current?.generatedAt && (
-                <div className="meta-bar">
-                  <span>Generated at: <strong>{new Date(current.generatedAt).toLocaleString()}</strong></span>
-                  {current.source && <span className="source">[{current.source}]</span>}
-                  <span>{filtered.length} / {rows.length} checks</span>
-                </div>
-              )}
+                <Filters
+                  clients={clients} envs={envs}
+                  selectedClient={selectedClient} selectedEnv={selectedEnv} onlyKo={onlyKo}
+                  onClient={handleClientChange} onEnv={handleEnvChange} onOnlyKo={handleOnlyKo}
+                  onRefresh={loadAll} loading={loading} nextRefresh={nextRefresh}
+                />
 
-              <Filters
-                clients={clients} envs={envs}
-                selectedClient={selectedClient} selectedEnv={selectedEnv} onlyKo={onlyKo}
-                onClient={handleClientChange} onEnv={handleEnvChange} onOnlyKo={handleOnlyKo}
-                onRefresh={loadAll} loading={loading} nextRefresh={nextRefresh}
-              />
+                <StatusTable rows={filtered} tech={tech} />
+              </>
+            )
+          )}
 
-              <StatusTable rows={filtered} tech={tech} />
-            </>
+          {section === "trend" && (
+            <Trend tech={tech} daily={daily} loading={historyLoading[tech]} error={historyErrors[tech]} />
+          )}
+
+          {section === "history" && (
+            <Journal tech={tech} entries={journalEntries} loading={historyLoading[tech]} error={historyErrors[tech]} />
+          )}
+
+          {section === "ranking" && (
+            <Ranking tech={tech} rows={ranking} loading={historyLoading[tech]} error={historyErrors[tech]} />
           )}
         </main>
       </div>

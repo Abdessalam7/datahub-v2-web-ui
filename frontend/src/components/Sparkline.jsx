@@ -1,13 +1,12 @@
-export default function Sparkline({ points, height = 56 }) {
+import { useId } from "react";
+
+export default function Sparkline({ points, height = 56, width = 320, color = "#5EEBA8", showArea = true, emptyMessage = "Collecte en cours — la tendance s'affichera après quelques cycles de rafraîchissement." }) {
+  const gradientId = useId();
   if (!points || points.length < 2) {
-    return (
-      <div className="hero-spark-empty">
-        Collecte en cours — la tendance s'affichera après quelques cycles de rafraîchissement.
-      </div>
-    );
+    return <div className="hero-spark-empty">{emptyMessage}</div>;
   }
 
-  const w = 320;
+  const w = width;
   const pad = 4;
   const min = Math.min(...points);
   const max = Math.max(...points);
@@ -34,15 +33,17 @@ export default function Sparkline({ points, height = 56 }) {
       role="img"
       aria-label="Tendance de l'uptime combiné"
     >
-      <defs>
-        <linearGradient id="heroSparkGradient" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="rgba(47,217,140,0.45)" />
-          <stop offset="100%" stopColor="rgba(47,217,140,0)" />
-        </linearGradient>
-      </defs>
-      <path d={areaPath} fill="url(#heroSparkGradient)" />
-      <path d={linePath} fill="none" stroke="#5EEBA8" strokeWidth="1.6" strokeLinejoin="round" strokeLinecap="round" />
-      <circle cx={last[0]} cy={last[1]} r={3} fill="#5EEBA8" />
+      {showArea && (
+        <defs>
+          <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor={color} stopOpacity="0.45" />
+            <stop offset="100%" stopColor={color} stopOpacity="0" />
+          </linearGradient>
+        </defs>
+      )}
+      {showArea && <path d={areaPath} fill={`url(#${gradientId})`} />}
+      <path d={linePath} fill="none" stroke={color} strokeWidth="1.6" strokeLinejoin="round" strokeLinecap="round" />
+      <circle cx={last[0]} cy={last[1]} r={3} fill={color} />
     </svg>
   );
 }

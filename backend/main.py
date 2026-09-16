@@ -1,7 +1,7 @@
 from fastapi import FastAPI, Query, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from cache import cache
-from cos_client import fetch_status_from_cos
+from cos_client import fetch_status_from_cos, fetch_history_from_cos
 
 app = FastAPI(title="Datahub v2 Smoke Tests API", version="1.0.0")
 
@@ -37,3 +37,27 @@ def get_status(tech: str = Query(..., description="Technology: airflow or spark"
 
     cache.set(tech, data)
     return {"source": "cos", "data": data}
+
+@app.get("/api/history")
+def get_history(
+    tech: str = Query(..., description="Technology: airflow or spark"),
+    days: int = Query(37, ge=1, le=120, description="How many calendar days of history to fetch"),
+):
+    if tech not in SUPPORTED_TECHS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unsupported tech '{tech}'. Must be one of: {sorted(SUPPORTED_TECHS)}"
+        )
+
+    cache_key = f"history:{tech}:{days}"
+    cached = cache.get(cache_key)
+    if cached is not None:
+        return {"source": "cache", "data": cached}
+
+    try:
+        events = fetch_history_from_cos(tech, days=days)
+    except RuntimeError as e:
+        raise HTTPException(status_code=502, detail=str(e))
+
+    cache.set(cache_key, events)
+    return {"source": "cos", "data": events}

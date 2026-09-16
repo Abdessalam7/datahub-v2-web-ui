@@ -8,3 +8,12 @@ export async function fetchStatus(tech) {
   }
   return res.json();
 }
+
+export async function fetchHistory(tech, days = 37) {
+  const res = await fetch(`${BASE_URL}/history?tech=${tech}&days=${days}`);
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || `HTTP ${res.status}`);
+  }
+  return res.json();
+}
