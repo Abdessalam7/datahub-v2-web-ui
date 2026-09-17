@@ -46,6 +46,8 @@ export function flattenData(data, tech) {
       id: `dags-${i}`,
       client: d.business_line.toUpperCase(),
       env: d.env,
+      url: d.url,
+      url_href: `https://${d.url}.data.cloud.net.intra`,
       dag_id: d.dag_id,
       is_paused: d.is_paused,
       state: d.state,
@@ -89,8 +91,9 @@ export function isGoodValue(value) {
   return Boolean(value);
 }
 
-// dags rows are one per (client, env, dag_id) — every other tech is one row
-// per (client, env), so dag_id only needs disambiguating when present.
+// dags rows are one per (client, instance url, dag_id) — a client can have
+// several instances sharing the same env, so env alone can't disambiguate.
+// Every other tech is one row per (client, env).
 export function rowKey(row) {
-  return row.dag_id ? `${row.client}|${row.env}|${row.dag_id}` : `${row.client}|${row.env}`;
+  return row.dag_id ? `${row.client}|${row.url}|${row.dag_id}` : `${row.client}|${row.env}`;
 }

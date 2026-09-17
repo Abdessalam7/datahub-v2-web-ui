@@ -33,11 +33,11 @@ export function exportCSV(rows, tech) {
       ].map(escape).join(",")),
     ];
   } else if (tech === "dags") {
-    headers = ["Business Line", "Env", "DAG ID", "Paused", "State", "Delayed", "Execution Date", "Error"];
+    headers = ["Business Line", "Env", "Instance", "DAG ID", "Paused", "State", "Delayed", "Execution Date", "Error"];
     lines = [
       headers.join(","),
       ...rows.map((r) => [
-        r.client, r.env, r.dag_id, r.is_paused, r.state, r.delayed,
+        r.client, r.env, r.url, r.dag_id, r.is_paused, r.state, r.delayed,
         r.execution_date ?? "", r.error ?? "",
       ].map(escape).join(",")),
     ];
@@ -497,7 +497,7 @@ function StateBadge({ state }) {
   return <StatusBadge ok={state === "success" || state === "running"} label={state} />;
 }
 
-function DagsRows({ rows, sortCol, sortDir }) {
+function DagsRows({ rows, sortCol, sortDir, hideEnv }) {
   const sorted = useMemo(() => {
     return [...rows].sort((a, b) => {
       let av = a[sortCol], bv = b[sortCol];
@@ -511,7 +511,7 @@ function DagsRows({ rows, sortCol, sortDir }) {
 
   return sorted.map((row, i) => (
     <tr key={row.id ?? i} className={!row.ok ? "row-ko" : ""}>
-      <td className="cell-mono">{row.env}</td>
+      {!hideEnv && <td className="cell-mono">{row.env}</td>}
       <td className="cell-mono cell-tenant">{row.dag_id}</td>
       <td><BoolBadge value={!row.is_paused} /></td>
       <td><StateBadge state={row.state} /></td>
@@ -522,17 +522,18 @@ function DagsRows({ rows, sortCol, sortDir }) {
   ));
 }
 
-function DagsAccordion({ clientName, rows, sortCol, sortDir, colProps }) {
+function DagsInstanceAccordion({ url, env, rows, sortCol, sortDir, colProps }) {
   const [open, setOpen] = useState(true);
   const total = rows.length;
   const ko    = rows.filter((r) => !r.ok).length;
   const ok    = total - ko;
 
   return (
-    <div className="accordion-section">
-      <div className="accordion-header" onClick={() => setOpen((v) => !v)}>
+    <div className="accordion-subsection">
+      <div className="accordion-subheader" onClick={() => setOpen((v) => !v)}>
         <span className="accordion-chevron">{open ? "▾" : "▸"}</span>
-        <span className="accordion-client">{clientName}</span>
+        <span className="accordion-instance">{url}</span>
+        <span className="cell-mono acc-instance-env">{env}</span>
         <span className="accordion-stats">
           <span className="acc-stat acc-ok">✓ {ok} OK</span>
           {ko > 0 && <span className="acc-stat acc-ko">✗ {ko} KO</span>}
@@ -544,7 +545,6 @@ function DagsAccordion({ clientName, rows, sortCol, sortDir, colProps }) {
           <table>
             <thead>
               <tr>
-                <th {...colProps("env")}>Env <SortIcon col="env" sortCol={sortCol} sortDir={sortDir} /></th>
                 <th {...colProps("dag_id")}>DAG ID <SortIcon col="dag_id" sortCol={sortCol} sortDir={sortDir} /></th>
                 <th>Active</th>
                 <th {...colProps("state")}>State <SortIcon col="state" sortCol={sortCol} sortDir={sortDir} /></th>
@@ -554,9 +554,49 @@ function DagsAccordion({ clientName, rows, sortCol, sortDir, colProps }) {
               </tr>
             </thead>
             <tbody>
-              <DagsRows rows={rows} sortCol={sortCol} sortDir={sortDir} />
+              <DagsRows rows={rows} sortCol={sortCol} sortDir={sortDir} hideEnv />
             </tbody>
           </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function DagsAccordion({ clientName, rows, sortCol, sortDir, colProps }) {
+  const [open, setOpen] = useState(true);
+  const total = rows.length;
+  const ko    = rows.filter((r) => !r.ok).length;
+  const ok    = total - ko;
+
+  const groupedByInstance = useMemo(() => {
+    const map = {};
+    for (const row of rows) {
+      if (!map[row.url]) map[row.url] = [];
+      map[row.url].push(row);
+    }
+    return Object.entries(map).sort(([a], [b]) => a.localeCompare(b));
+  }, [rows]);
+
+  return (
+    <div className="accordion-section">
+      <div className="accordion-header" onClick={() => setOpen((v) => !v)}>
+        <span className="accordion-chevron">{open ? "▾" : "▸"}</span>
+        <span className="accordion-client">{clientName}</span>
+        <span className="accordion-stats">
+          <span className="acc-stat acc-ok">✓ {ok} OK</span>
+          {ko > 0 && <span className="acc-stat acc-ko">✗ {ko} KO</span>}
+          <span className="acc-stat acc-total">{total} DAGs across {groupedByInstance.length} instances</span>
+        </span>
+      </div>
+      {open && (
+        <div>
+          {groupedByInstance.map(([url, instanceRows]) => (
+            <DagsInstanceAccordion
+              key={url} url={url} env={instanceRows[0]?.env}
+              rows={instanceRows} sortCol={sortCol} sortDir={sortDir} colProps={colProps}
+            />
+          ))}
         </div>
       )}
     </div>
@@ -586,6 +626,7 @@ function DagsFlatTable({ rows, sortCol, sortDir, handleSort }) {
         <tr>
           <th {...colProps("client")}>Business Line <SortIcon col="client" sortCol={sortCol} sortDir={sortDir} /></th>
           <th {...colProps("env")}>Env <SortIcon col="env" sortCol={sortCol} sortDir={sortDir} /></th>
+          <th {...colProps("url")}>Instance <SortIcon col="url" sortCol={sortCol} sortDir={sortDir} /></th>
           <th {...colProps("dag_id")}>DAG ID <SortIcon col="dag_id" sortCol={sortCol} sortDir={sortDir} /></th>
           <th>Active</th>
           <th {...colProps("state")}>State <SortIcon col="state" sortCol={sortCol} sortDir={sortDir} /></th>
@@ -599,6 +640,11 @@ function DagsFlatTable({ rows, sortCol, sortDir, handleSort }) {
           <tr key={row.id ?? i} className={!row.ok ? "row-ko" : ""}>
             <td className="cell-mono">{row.client}</td>
             <td className="cell-mono">{row.env}</td>
+            <td className="cell-mono cell-tenant">
+              <a href={row.url_href} target="_blank" rel="noopener noreferrer" className="url-link">
+                {row.url}
+              </a>
+            </td>
             <td className="cell-mono cell-tenant">{row.dag_id}</td>
             <td><BoolBadge value={!row.is_paused} /></td>
             <td><StateBadge state={row.state} /></td>

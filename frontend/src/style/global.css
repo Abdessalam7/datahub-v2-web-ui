@@ -249,6 +249,11 @@ tbody tr.row-ko:hover { background: rgba(214,60,60,0.14); }
 .accordion-body td { padding-left: 46px; }
 .accordion-body tbody tr:last-child td { border-bottom: none; }
 .accordion-body tbody tr.row-ko { background: var(--ko-wash); }
+.accordion-subsection { border-top: 1px dashed var(--border); }
+.accordion-subheader { display: flex; align-items: center; gap: 12px; padding: 8px 18px 8px 40px; cursor: pointer; user-select: none; background: var(--surface); transition: background .12s; }
+.accordion-subheader:hover { background: var(--brand-wash); }
+.accordion-instance { font-family: var(--mono); font-size: 12px; font-weight: 600; color: var(--ink); }
+.acc-instance-env { font-size: 11px; color: var(--ink-dim); }
 
 /* ── Tooltip (kept for compatibility with existing components) ──────────── */
 .tooltip-wrap { position: relative; display: inline-flex; }
