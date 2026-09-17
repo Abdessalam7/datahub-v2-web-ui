@@ -32,6 +32,15 @@ export function exportCSV(rows, tech) {
         r.ibm_account, r.iks_cluster,
       ].map(escape).join(",")),
     ];
+  } else if (tech === "dags") {
+    headers = ["Business Line", "Env", "DAG ID", "Paused", "State", "Delayed", "Execution Date", "Error"];
+    lines = [
+      headers.join(","),
+      ...rows.map((r) => [
+        r.client, r.env, r.dag_id, r.is_paused, r.state, r.delayed,
+        r.execution_date ?? "", r.error ?? "",
+      ].map(escape).join(",")),
+    ];
   } else if (tech === "starburst") {
     headers = ["Business Line", "Env", "URL", "Version", "# Catalogs", "Healthy Catalogs", "Coordinator Uptime", "Coordinator Health", "# Workers", "Workers Health", "Instance Health", "Errors", "Failed Catalogs"];
     lines = [
@@ -481,12 +490,135 @@ function StarburstFlatTable({ rows, sortCol, sortDir, handleSort }) {
   );
 }
 
+// ─── DAGs ──────────────────────────────────────────────────────────────────────
+
+function StateBadge({ state }) {
+  if (!state) return <span className="cell-mono">—</span>;
+  return <StatusBadge ok={state === "success" || state === "running"} label={state} />;
+}
+
+function DagsRows({ rows, sortCol, sortDir }) {
+  const sorted = useMemo(() => {
+    return [...rows].sort((a, b) => {
+      let av = a[sortCol], bv = b[sortCol];
+      if (typeof av === "boolean") { av = av ? 1 : 0; bv = bv ? 1 : 0; }
+      if (av == null) return 1;
+      if (bv == null) return -1;
+      if (typeof av === "string") return sortDir === "asc" ? av.localeCompare(bv) : bv.localeCompare(av);
+      return sortDir === "asc" ? av - bv : bv - av;
+    });
+  }, [rows, sortCol, sortDir]);
+
+  return sorted.map((row, i) => (
+    <tr key={row.id ?? i} className={!row.ok ? "row-ko" : ""}>
+      <td className="cell-mono">{row.env}</td>
+      <td className="cell-mono cell-tenant">{row.dag_id}</td>
+      <td><BoolBadge value={!row.is_paused} /></td>
+      <td><StateBadge state={row.state} /></td>
+      <td><BoolBadge value={!row.delayed} /></td>
+      <td className="cell-mono">{row.execution_date ? new Date(row.execution_date).toLocaleString() : ""}</td>
+      <td className="cell-error">{row.error ?? ""}</td>
+    </tr>
+  ));
+}
+
+function DagsAccordion({ clientName, rows, sortCol, sortDir, colProps }) {
+  const [open, setOpen] = useState(true);
+  const total = rows.length;
+  const ko    = rows.filter((r) => !r.ok).length;
+  const ok    = total - ko;
+
+  return (
+    <div className="accordion-section">
+      <div className="accordion-header" onClick={() => setOpen((v) => !v)}>
+        <span className="accordion-chevron">{open ? "▾" : "▸"}</span>
+        <span className="accordion-client">{clientName}</span>
+        <span className="accordion-stats">
+          <span className="acc-stat acc-ok">✓ {ok} OK</span>
+          {ko > 0 && <span className="acc-stat acc-ko">✗ {ko} KO</span>}
+          <span className="acc-stat acc-total">{total} DAGs</span>
+        </span>
+      </div>
+      {open && (
+        <div className="accordion-body">
+          <table>
+            <thead>
+              <tr>
+                <th {...colProps("env")}>Env <SortIcon col="env" sortCol={sortCol} sortDir={sortDir} /></th>
+                <th {...colProps("dag_id")}>DAG ID <SortIcon col="dag_id" sortCol={sortCol} sortDir={sortDir} /></th>
+                <th>Active</th>
+                <th {...colProps("state")}>State <SortIcon col="state" sortCol={sortCol} sortDir={sortDir} /></th>
+                <th>Not Delayed</th>
+                <th {...colProps("execution_date")}>Execution Date <SortIcon col="execution_date" sortCol={sortCol} sortDir={sortDir} /></th>
+                <th>Error</th>
+              </tr>
+            </thead>
+            <tbody>
+              <DagsRows rows={rows} sortCol={sortCol} sortDir={sortDir} />
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function DagsFlatTable({ rows, sortCol, sortDir, handleSort }) {
+  const colProps = (col) => ({
+    onClick: () => handleSort(col),
+    className: "th-sortable",
+  });
+
+  const sorted = useMemo(() => {
+    return [...rows].sort((a, b) => {
+      let av = a[sortCol], bv = b[sortCol];
+      if (typeof av === "boolean") { av = av ? 1 : 0; bv = bv ? 1 : 0; }
+      if (av == null) return 1;
+      if (bv == null) return -1;
+      if (typeof av === "string") return sortDir === "asc" ? av.localeCompare(bv) : bv.localeCompare(av);
+      return sortDir === "asc" ? av - bv : bv - av;
+    });
+  }, [rows, sortCol, sortDir]);
+
+  return (
+    <table>
+      <thead>
+        <tr>
+          <th {...colProps("client")}>Business Line <SortIcon col="client" sortCol={sortCol} sortDir={sortDir} /></th>
+          <th {...colProps("env")}>Env <SortIcon col="env" sortCol={sortCol} sortDir={sortDir} /></th>
+          <th {...colProps("dag_id")}>DAG ID <SortIcon col="dag_id" sortCol={sortCol} sortDir={sortDir} /></th>
+          <th>Active</th>
+          <th {...colProps("state")}>State <SortIcon col="state" sortCol={sortCol} sortDir={sortDir} /></th>
+          <th>Not Delayed</th>
+          <th {...colProps("execution_date")}>Execution Date <SortIcon col="execution_date" sortCol={sortCol} sortDir={sortDir} /></th>
+          <th>Error</th>
+        </tr>
+      </thead>
+      <tbody>
+        {sorted.map((row, i) => (
+          <tr key={row.id ?? i} className={!row.ok ? "row-ko" : ""}>
+            <td className="cell-mono">{row.client}</td>
+            <td className="cell-mono">{row.env}</td>
+            <td className="cell-mono cell-tenant">{row.dag_id}</td>
+            <td><BoolBadge value={!row.is_paused} /></td>
+            <td><StateBadge state={row.state} /></td>
+            <td><BoolBadge value={!row.delayed} /></td>
+            <td className="cell-mono">{row.execution_date ? new Date(row.execution_date).toLocaleString() : ""}</td>
+            <td className="cell-error">{row.error ?? ""}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
 // ─── Main ──────────────────────────────────────────────────────────────────────
 
 export default function StatusTable({ rows, tech }) {
   const isSpark = tech === "spark";
   const isStarburst = tech === "starburst";
-  const [sortCol, setSortCol] = useState("url");
+  const isDags = tech === "dags";
+  const [sortCol, setSortCol] = useState(isDags ? "dag_id" : "url");
   const [sortDir, setSortDir] = useState("asc");
   const [viewMode, setViewMode] = useState("accordion");
 
@@ -529,7 +661,7 @@ export default function StatusTable({ rows, tech }) {
             className={`view-btn ${viewMode === "accordion" ? "view-btn-active" : ""}`}
             onClick={() => setViewMode("accordion")}
           >
-            ☰ By {isSpark ? "business line" : "business line"}
+            ☰ By business line
           </button>
           <button
             className={`view-btn ${viewMode === "flat" ? "view-btn-active" : ""}`}
@@ -545,19 +677,23 @@ export default function StatusTable({ rows, tech }) {
       </div>
 
       {viewMode === "flat" ? (
-        isStarburst
-          ? <StarburstFlatTable rows={rows} sortCol={sortCol} sortDir={sortDir} handleSort={handleSort} />
-          : isSpark
-            ? <SparkFlatTable rows={rows} sortCol={sortCol} sortDir={sortDir} handleSort={handleSort} />
-            : <AirflowFlatTable rows={rows} sortCol={sortCol} sortDir={sortDir} handleSort={handleSort} />
+        isDags
+          ? <DagsFlatTable rows={rows} sortCol={sortCol} sortDir={sortDir} handleSort={handleSort} />
+          : isStarburst
+            ? <StarburstFlatTable rows={rows} sortCol={sortCol} sortDir={sortDir} handleSort={handleSort} />
+            : isSpark
+              ? <SparkFlatTable rows={rows} sortCol={sortCol} sortDir={sortDir} handleSort={handleSort} />
+              : <AirflowFlatTable rows={rows} sortCol={sortCol} sortDir={sortDir} handleSort={handleSort} />
       ) : (
         <div className="accordion">
           {groupedByClient.map(([clientName, clientRows]) => (
-            isStarburst
-              ? <StarburstAccordion key={clientName} clientName={clientName} rows={clientRows} sortCol={sortCol} sortDir={sortDir} colProps={colProps} />
-              : isSpark
-                ? <SparkAccordion key={clientName} clientName={clientName} rows={clientRows} sortCol={sortCol} sortDir={sortDir} colProps={colProps} />
-                : <AirflowAccordion key={clientName} clientName={clientName} rows={clientRows} sortCol={sortCol} sortDir={sortDir} colProps={colProps} />
+            isDags
+              ? <DagsAccordion key={clientName} clientName={clientName} rows={clientRows} sortCol={sortCol} sortDir={sortDir} colProps={colProps} />
+              : isStarburst
+                ? <StarburstAccordion key={clientName} clientName={clientName} rows={clientRows} sortCol={sortCol} sortDir={sortDir} colProps={colProps} />
+                : isSpark
+                  ? <SparkAccordion key={clientName} clientName={clientName} rows={clientRows} sortCol={sortCol} sortDir={sortDir} colProps={colProps} />
+                  : <AirflowAccordion key={clientName} clientName={clientName} rows={clientRows} sortCol={sortCol} sortDir={sortDir} colProps={colProps} />
           ))}
         </div>
       )}

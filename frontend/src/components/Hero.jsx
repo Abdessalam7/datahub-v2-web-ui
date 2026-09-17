@@ -1,7 +1,7 @@
 import Sparkline from "./Sparkline.jsx";
 
-const TABS = ["airflow", "spark", "starburst"];
-const TAB_LABELS = { airflow: "Airflow", spark: "Spark", starburst: "Starburst" };
+const TABS = ["airflow", "spark", "starburst", "dags"];
+const TAB_LABELS = { airflow: "Airflow", spark: "Spark", starburst: "Starburst", dags: "DAGs" };
 
 export default function Hero({ tech, onChangeTech, techStats, combinedHistory }) {
   const allTotal = TABS.reduce((s, t) => s + (techStats[t]?.total ?? 0), 0);

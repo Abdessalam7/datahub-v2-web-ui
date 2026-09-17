@@ -41,6 +41,21 @@ export function flattenData(data, tech) {
       ok: t.starburst_instance_health === true && t.healthy_catalogs === t.number_of_catalogs,
     }));
   }
+  if (tech === "dags") {
+    return (data.dags ?? []).map((d, i) => ({
+      id: `dags-${i}`,
+      client: d.business_line.toUpperCase(),
+      env: d.env,
+      dag_id: d.dag_id,
+      is_paused: d.is_paused,
+      state: d.state,
+      execution_date: d.execution_date,
+      start_date: d.start_date,
+      delayed: d.delayed,
+      error: d.error,
+      ok: d.ok,
+    }));
+  }
   return (data.instances ?? []).map((t, i) => ({
     id: `airflow-${i}`,
     client: t.business_line.toUpperCase(),
@@ -64,15 +79,18 @@ export const JOURNAL_FIELDS = {
   airflow: ["http", "dag_processor", "scheduler", "trigger", "meta_db"],
   spark: ["status", "sync_argo", "all_healthy"],
   starburst: ["coordinator_health", "workers_health", "starburst_instance_health"],
+  dags: ["state", "delayed"],
 };
 
 export function isGoodValue(value) {
   if (typeof value === "boolean") return value === true;
-  if (value === "Healthy" || value === "Synced") return true;
-  if (value === "Degraded" || value === "OutOfSync") return false;
+  if (value === "Healthy" || value === "Synced" || value === "success") return true;
+  if (value === "Degraded" || value === "OutOfSync" || value === "failed") return false;
   return Boolean(value);
 }
 
+// dags rows are one per (client, env, dag_id) — every other tech is one row
+// per (client, env), so dag_id only needs disambiguating when present.
 export function rowKey(row) {
-  return `${row.client}|${row.env}`;
+  return row.dag_id ? `${row.client}|${row.env}|${row.dag_id}` : `${row.client}|${row.env}`;
 }

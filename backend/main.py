@@ -12,7 +12,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-SUPPORTED_TECHS = {"airflow", "spark", "starburst"}
+SUPPORTED_TECHS = {"airflow", "spark", "starburst", "dags"}
 
 @app.get("/health")
 def health():

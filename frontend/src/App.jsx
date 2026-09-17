@@ -10,8 +10,8 @@ import { flattenData } from "./lib/flatten.js";
 import { computeDailyUptime, computeJournal, computeRanking } from "./lib/history.js";
 import "./style/global.css";
 
-const TABS = ["airflow", "spark", "starburst"];
-const TAB_LABELS = { airflow: "Airflow", spark: "Spark", starburst: "Starburst" };
+const TABS = ["airflow", "spark", "starburst", "dags"];
+const TAB_LABELS = { airflow: "Airflow", spark: "Spark", starburst: "Starburst", dags: "DAGs" };
 const REFRESH_INTERVAL = 300_000;
 const HISTORY_MAX_HOURS = 24;
 const COMBINED_HISTORY_KEY = "smoke_history_combined";
