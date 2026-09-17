@@ -106,6 +106,23 @@ export function computeJournal(events, tech) {
   return entries;
 }
 
+// Combines several techs' computeDailyUptime() outputs into one daily trend —
+// unweighted average across every (tech, client) series for each day. Feeds
+// the Hero's combined sparkline so it's the same COS-backed data for every
+// viewer, instead of a per-browser localStorage trail.
+export function computeCombinedDaily(dailyByTech) {
+  const techs = Object.keys(dailyByTech).filter((t) => dailyByTech[t]?.dates?.length);
+  if (techs.length === 0) return [];
+
+  const dates = dailyByTech[techs[0]].dates;
+  return dates.map((_, i) => {
+    const values = techs.flatMap((t) => Object.values(dailyByTech[t].series).map((s) => s[i]))
+      .filter((v) => v != null);
+    if (values.length === 0) return null;
+    return Math.round((values.reduce((a, b) => a + b, 0) / values.length) * 10) / 10;
+  }).filter((v) => v != null);
+}
+
 // This-week vs previous-week average uptime per client, from computeDailyUptime's
 // output, sorted most-degraded first (matches the mockup's ranking order).
 export function computeRanking(daily) {

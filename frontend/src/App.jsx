@@ -7,14 +7,14 @@ import Journal from "./components/Journal.jsx";
 import Ranking from "./components/Ranking.jsx";
 import { fetchStatus, fetchHistory } from "./api.js";
 import { flattenData } from "./lib/flatten.js";
-import { computeDailyUptime, computeJournal, computeRanking } from "./lib/history.js";
+import { computeDailyUptime, computeJournal, computeRanking, computeCombinedDaily } from "./lib/history.js";
 import "./style/global.css";
 
 const TABS = ["airflow", "spark", "starburst", "dags"];
 const TAB_LABELS = { airflow: "Airflow", spark: "Spark", starburst: "Starburst", dags: "DAGs" };
+// starburst has no day-partitioned history collector yet
+const HISTORY_TECHS = TABS.filter((t) => t !== "starburst");
 const REFRESH_INTERVAL = 300_000;
-const HISTORY_MAX_HOURS = 24;
-const COMBINED_HISTORY_KEY = "smoke_history_combined";
 const SECTIONS = ["current", "trend", "history", "ranking"];
 const SECTION_LABELS = {
   current: "Vue actuelle",
@@ -22,29 +22,6 @@ const SECTION_LABELS = {
   history: "Journal des changements",
   ranking: "Classement",
 };
-
-function loadHistory(key) {
-  try {
-    const raw = localStorage.getItem(key);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    const cutoff = Date.now() - HISTORY_MAX_HOURS * 60 * 60 * 1000;
-    return parsed.filter((s) => s.ts >= cutoff);
-  } catch { return []; }
-}
-
-function saveHistory(key, history) {
-  try {
-    localStorage.setItem(key, JSON.stringify(history));
-  } catch {}
-}
-
-function appendSnapshot(key, prev, snap) {
-  const cutoff = Date.now() - HISTORY_MAX_HOURS * 60 * 60 * 1000;
-  const updated = [...prev.filter((s) => s.ts >= cutoff), snap];
-  saveHistory(key, updated);
-  return updated;
-}
 
 function KpiCards({ rows, tech, activeCard, onCardClick }) {
   const total  = rows.length;
@@ -143,7 +120,6 @@ export default function App() {
   const [errors, setErrors] = useState({});
   const [loading, setLoading]         = useState(false);
   const [nextRefresh, setNextRefresh] = useState(Date.now() + REFRESH_INTERVAL);
-  const [combinedHistory, setCombinedHistory] = useState(() => loadHistory(COMBINED_HISTORY_KEY).map((s) => s.uptime));
   const [section, setSection] = useState("current");
   const [rawHistoryByTech, setRawHistoryByTech] = useState({});
   const [historyLoading, setHistoryLoading] = useState({});
@@ -163,7 +139,6 @@ export default function App() {
 
     const nextData = {};
     const nextErrors = {};
-    let combinedOk = 0, combinedTotal = 0;
 
     results.forEach((res, i) => {
       const t = TABS[i];
@@ -174,22 +149,10 @@ export default function App() {
       const { source, data } = res.value;
       const rows = flattenData(data, t);
       nextData[t] = { rows, source, generatedAt: data.generated_at };
-      combinedOk += rows.filter((r) => r.ok).length;
-      combinedTotal += rows.length;
     });
 
     setDataByTech((prev) => ({ ...prev, ...nextData }));
     setErrors(nextErrors);
-
-    if (combinedTotal > 0) {
-      const uptime = Math.round((combinedOk / combinedTotal) * 100);
-      setCombinedHistory((prev) => {
-        const prevSnaps = loadHistory(COMBINED_HISTORY_KEY);
-        const updated = appendSnapshot(COMBINED_HISTORY_KEY, prevSnaps, { ts: Date.now(), uptime });
-        return updated.map((s) => s.uptime);
-      });
-    }
-
     setLoading(false);
     setNextRefresh(Date.now() + REFRESH_INTERVAL);
   }, []);
@@ -205,28 +168,35 @@ export default function App() {
     setActiveCard("total"); setActiveFilter(null);
   }, [tech]);
 
-  // Trend/Journal/Classement all read the same COS history for the currently
-  // selected tech — fetched once per tech (37 days: 30 to render + a 7-day
-  // buffer so the first rendered days still have a carry-in state).
+  // Trend/Journal/Classement need COS history per tech, and the Hero's combined
+  // sparkline needs it across *every* tech — so fetch all of them once on load
+  // (37 days: 30 to render + a 7-day buffer for carry-in state) rather than
+  // lazily per selected tab. Same data for every viewer, no browser-local state.
   useEffect(() => {
-    if (tech === "starburst" || rawHistoryByTech[tech] || historyLoading[tech]) return;
-    setHistoryLoading((prev) => ({ ...prev, [tech]: true }));
-    fetchHistory(tech, 37)
-      .then(({ data }) => {
-        setRawHistoryByTech((prev) => ({ ...prev, [tech]: data }));
-      })
-      .catch((err) => {
-        setHistoryErrors((prev) => ({ ...prev, [tech]: err.message }));
-      })
-      .finally(() => {
-        setHistoryLoading((prev) => ({ ...prev, [tech]: false }));
-      });
-  }, [tech, rawHistoryByTech, historyLoading]);
+    HISTORY_TECHS.forEach((t) => {
+      setHistoryLoading((prev) => ({ ...prev, [t]: true }));
+      fetchHistory(t, 37)
+        .then(({ data }) => {
+          setRawHistoryByTech((prev) => ({ ...prev, [t]: data }));
+        })
+        .catch((err) => {
+          setHistoryErrors((prev) => ({ ...prev, [t]: err.message }));
+        })
+        .finally(() => {
+          setHistoryLoading((prev) => ({ ...prev, [t]: false }));
+        });
+    });
+  }, []);
 
-  const daily = useMemo(
-    () => computeDailyUptime(rawHistoryByTech[tech] ?? [], tech, 30),
-    [rawHistoryByTech, tech]
-  );
+  const dailyByTech = useMemo(() => {
+    const result = {};
+    for (const t of HISTORY_TECHS) result[t] = computeDailyUptime(rawHistoryByTech[t] ?? [], t, 30);
+    return result;
+  }, [rawHistoryByTech]);
+
+  const combinedHistory = useMemo(() => computeCombinedDaily(dailyByTech), [dailyByTech]);
+
+  const daily = dailyByTech[tech] ?? computeDailyUptime([], tech, 30);
   const journalEntries = useMemo(
     () => computeJournal(rawHistoryByTech[tech] ?? [], tech),
     [rawHistoryByTech, tech]

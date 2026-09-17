@@ -24,11 +24,16 @@ export default function Hero({ tech, onChangeTech, techStats, combinedHistory })
             <span className="hero-eyebrow">Uptime plateforme combiné</span>
             <span className="hero-figure">{combinedUptime}<sup>%</sup></span>
             <span className="hero-figure-caption">
-              {allOk} contrôles OK sur {allTotal}, tous systèmes confondus (Airflow, Spark, Starburst).
+              {allOk} contrôles OK sur {allTotal}, tous systèmes confondus (Airflow, Spark, Starburst, DAGs).
             </span>
-            <div className="hero-spark"><Sparkline points={combinedHistory} /></div>
+            <div className="hero-spark">
+              <Sparkline
+                points={combinedHistory}
+                emptyMessage="Collecte en cours — la tendance s'affichera après quelques jours d'historique."
+              />
+            </div>
             {combinedHistory && combinedHistory.length >= 2 && (
-              <span className="hero-spark-label">Tendance sur les derniers cycles de rafraîchissement</span>
+              <span className="hero-spark-label">Tendance sur les 30 derniers jours</span>
             )}
           </div>
 
