@@ -1,6 +1,6 @@
 import Sparkline from "./Sparkline.jsx";
 
-const TABS = ["airflow", "spark", "starburst", "dags"];
+const TABS = ["airflow", "dags", "spark", "starburst"];
 const TAB_LABELS = { airflow: "Airflow", spark: "Spark", starburst: "Starburst", dags: "DAGs" };
 
 export default function Hero({ tech, onChangeTech, techStats, combinedHistory }) {

@@ -10,7 +10,7 @@ import { flattenData } from "./lib/flatten.js";
 import { computeDailyUptime, computeJournal, computeRanking, computeCombinedDaily } from "./lib/history.js";
 import "./style/global.css";
 
-const TABS = ["airflow", "spark", "starburst", "dags"];
+const TABS = ["airflow", "dags", "spark", "starburst"];
 const TAB_LABELS = { airflow: "Airflow", spark: "Spark", starburst: "Starburst", dags: "DAGs" };
 // starburst has no day-partitioned history collector yet
 const HISTORY_TECHS = TABS.filter((t) => t !== "starburst");
